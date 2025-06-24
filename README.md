@@ -1,4 +1,7 @@
-# Graph_Generator# Excel Data Visualizer
+Markdown
+
+Collapse
+# Excel Data Visualizer
 
 A Django-based web application that allows users to upload Excel files and create dynamic, interactive data visualizations with multi-graph comparison capabilities.
 
@@ -51,7 +54,6 @@ A Django-based web application that allows users to upload Excel files and creat
 ```bash
 git clone https://github.com/yourusername/excel-data-visualizer.git
 cd excel-data-visualizer
-
 Step 2: Create Virtual Environment
 Windows:
 
@@ -59,8 +61,44 @@ BASH
 
 python -m venv venv
 venv\Scripts\activate
+macOS/Linux:
 
+BASH
 
+python3 -m venv venv
+source venv/bin/activate
+Step 3: Install Dependencies
+BASH
+
+pip install -r requirements.txt
+Step 4: Environment Setup
+Create a .env file in the root directory:
+
+ENV
+
+SECRET_KEY=your-secret-key-here
+DEBUG=True
+ALLOWED_HOSTS=localhost,127.0.0.1
+Step 5: Database Setup
+BASH
+
+python manage.py makemigrations
+python manage.py migrate
+python manage.py makemigrations data_analyzer
+python manage.py migrate data_analyzer
+Step 6: Create Superuser (Optional)
+BASH
+
+python manage.py createsuperuser
+Step 7: Run the Server
+BASH
+
+python manage.py runserver
+Visit http://127.0.0.1:8000 in your browser.
+
+📁 Project Structure
+
+Collapse
 excel_visualizer/
 ├── excel_visualizer/       # Main Django project directory
 │   ├── settings.py        # Django settings
@@ -86,8 +124,7 @@ excel_visualizer/
 ├── media/               # User uploaded files
 ├── requirements.txt     # Python dependencies
 └── manage.py           # Django management script
-
-
+📊 Usage Guide
 1. Uploading Excel Files (Registered Users)
 Login to your account
 Navigate to "Upload Data"
