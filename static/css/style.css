@@ -1,0 +1,295 @@
+/* static/css/style.css */
+:root {
+    --nxp-orange: #FF6B35;
+    --nxp-blue: #00A9E0;
+    --nxp-green: #84BD00;
+    --nxp-yellow: #FFD100;
+    --nxp-gray: #7C878E;
+    --nxp-dark: #2C3E50;
+}
+
+body {
+    font-family: 'Arial', sans-serif;
+    background-color: #f8f9fa;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Navigation Styles */
+.navbar {
+    background: linear-gradient(135deg, var(--nxp-blue) 0%, var(--nxp-green) 100%);
+    box-shadow: 0 2px 4px rgba(0,0,0,.1);
+}
+
+.navbar-brand {
+    font-weight: bold;
+    font-size: 1.5rem;
+}
+
+.nav-link {
+    transition: all 0.3s ease;
+    margin: 0 10px;
+    border-radius: 5px;
+}
+
+.nav-link:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    transform: translateY(-2px);
+}
+
+.nav-link.active {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Card Styles */
+.card {
+    border: none;
+    border-radius: 10px;
+    transition: transform 0.3s ease;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+}
+
+.card-header {
+    border-radius: 10px 10px 0 0 !important;
+    font-weight: 600;
+}
+
+.bg-primary {
+    background-color: var(--nxp-blue) !important;
+}
+
+.bg-success {
+    background-color: var(--nxp-green) !important;
+}
+
+.bg-secondary {
+    background-color: var(--nxp-gray) !important;
+}
+
+/* Button Styles */
+.btn-primary {
+    background-color: var(--nxp-blue);
+    border-color: var(--nxp-blue);
+    transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+    background-color: #0087b8;
+    border-color: #0087b8;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 169, 224, 0.3);
+}
+
+.btn-success {
+    background-color: var(--nxp-green);
+    border-color: var(--nxp-green);
+}
+
+.btn-success:hover {
+    background-color: #6fa200;
+    border-color: #6fa200;
+}
+
+.btn-info {
+    background-color: var(--nxp-orange);
+    border-color: var(--nxp-orange);
+}
+
+.btn-info:hover {
+    background-color: #ff5a1f;
+    border-color: #ff5a1f;
+}
+
+/* Form Styles */
+.form-control, .form-select {
+    border-radius: 8px;
+    border: 2px solid #e0e0e0;
+    transition: all 0.3s ease;
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: var(--nxp-blue);
+    box-shadow: 0 0 0 0.2rem rgba(0, 169, 224, 0.25);
+}
+
+/* Checkbox Container */
+.checkbox-container {
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 10px;
+}
+
+.form-check {
+    padding: 5px 0;
+}
+
+.form-check-input:checked {
+    background-color: var(--nxp-green);
+    border-color: var(--nxp-green);
+}
+
+/* Table Styles */
+.table {
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.table thead th {
+    background-color: var(--nxp-gray);
+    color: white;
+    border: none;
+    font-weight: 600;
+}
+
+.table-hover tbody tr:hover {
+    background-color: rgba(132, 189, 0, 0.1);
+}
+
+/* Footer */
+.footer {
+    background-color: var(--nxp-dark);
+    color: white;
+    margin-top: auto;
+}
+
+/* Graph Container */
+#graphContainer {
+    background-color: white;
+    border-radius: 8px;
+    padding: 20px;
+}
+
+/* Loading Spinner */
+.spinner-border {
+    color: var(--nxp-blue);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+/* static/css/style.css - continued */
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--nxp-gray);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--nxp-dark);
+}
+
+/* Alert Styles */
+.alert {
+    border-radius: 8px;
+    border: none;
+}
+
+/* Modal Styles */
+.modal-content {
+    border-radius: 10px;
+    border: none;
+}
+
+.modal-header {
+    background: linear-gradient(135deg, var(--nxp-blue) 0%, var(--nxp-green) 100%);
+    color: white;
+    border-radius: 10px 10px 0 0;
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.fade-in {
+    animation: fadeIn 0.5s ease;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .navbar-brand {
+        font-size: 1.2rem;
+    }
+    
+    .card {
+        margin-bottom: 20px;
+    }
+    
+    #graphContainer {
+        height: 400px !important;
+    }
+}
+
+/* Add to static/css/style.css */
+
+/* X-axis selection styling */
+#xAxisSelect, #compareXAxisSelect {
+    background-color: #f8f9fa;
+    border: 2px solid var(--nxp-orange);
+}
+
+#xAxisSelect:focus, #compareXAxisSelect:focus {
+    border-color: var(--nxp-orange);
+    box-shadow: 0 0 0 0.2rem rgba(255, 107, 53, 0.25);
+}
+
+/* Comparison modal styling */
+#compareModal .modal-dialog {
+    max-width: 1200px;
+}
+
+#currentGraphInfo {
+    background: linear-gradient(135deg, rgba(255, 107, 53, 0.1) 0%, rgba(0, 169, 224, 0.1) 100%);
+    border-left: 4px solid var(--nxp-orange);
+}
+
+#currentGraphInfo p {
+    margin: 0.5rem 0;
+}
+
+#currentGraphInfo strong {
+    color: var(--nxp-dark);
+}
+
+/* Checkbox container improvements */
+.checkbox-container {
+    max-height: 250px;
+    background-color: #f8f9fa;
+}
+
+.checkbox-container::-webkit-scrollbar-thumb {
+    background: var(--nxp-green);
+}
+
+/* Small text helper */
+small.text-muted {
+    font-size: 0.8rem;
+    font-style: italic;
+}
+
+/* Comparison section headers */
+.text-primary {
+    color: var(--nxp-orange) !important;
+}
+
+.text-success {
+    color: var(--nxp-blue) !important;
+}

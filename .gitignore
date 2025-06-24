@@ -1,0 +1,200 @@
+# Django
+*.log
+*.pot
+*.pyc
+__pycache__/
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+media/
+staticfiles/
+static/admin/
+static/rest_framework/
+
+# Backup files
+*.bak
+
+# If you are using PyCharm
+.idea/
+.idea/**/workspace.xml
+.idea/**/tasks.xml
+.idea/**/usage.statistics.xml
+.idea/**/dictionaries
+.idea/**/shelf
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+virtualenv/
+
+# Spyder project settings
+.spyderproject
+.spyproject
+
+# Rope project settings
+.ropeproject
+
+# mkdocs documentation
+/site
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# Celery stuff
+celerybeat-schedule
+celerybeat.pid
+
+# SageMath parsed files
+*.sage.py
+
+# dotenv environment variables
+.env
+.env.local
+.env.*.local
+
+# virtualenv
+pip-selfcheck.json
+
+# MacOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# Secret keys and sensitive data
+secrets.json
+*.pem
+*.key
+*.crt
+*.csr
+
+# Excel files in media directory
+media/excel_files/
+
+# Test coverage
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# Translations
+*.mo
+
+# Sphinx documentation
+docs/_build/
+
+# PyBuilder
+target/
+
+# IPython
+profile_default/
+ipython_config.py
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Unit test / coverage reports
+*.py,cover
+
+# Flask stuff (if any):
+instance/
+.webassets-cache
+
+# Scrapy stuff (if any):
+.scrapy
+
+# npm (if using any JavaScript packages)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# webpack (if using)
+webpack-stats.json
+
+# Production settings
+production_settings.py
+production.py
+
+# Temporary files
+*.tmp
+*.temp
+tmp/
+temp/
+
+# Logs
+logs/
+*.log
+
+# Database dumps
+*.sql
+*.sqlite
+*.dump
+backup.json
+datadump.json
+
+# User uploaded content
+uploads/
+
+# Django migrations (optional - some teams track these)
+# */migrations/*.py
+# !*/migrations/__init__.py

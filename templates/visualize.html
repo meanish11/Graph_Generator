@@ -1,0 +1,152 @@
+<!-- templates/visualize.html -->
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Visualize Data{% endblock %}
+
+{% block extra_head %}
+<script src="{% static 'js/main.js' %}"></script>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- Control Panel -->
+    <div class="col-md-3">
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-cog"></i> Graph Settings</h5>
+            </div>
+            <div class="card-body">
+                {% if not user.is_authenticated %}
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> 
+                        <small>Login to upload your own files</small>
+                    </div>
+                {% endif %}
+                
+                <form id="graphForm">
+                    <!-- File Selection -->
+                    <div class="mb-3">
+                        <label class="form-label">Select File</label>
+                        <select id="fileSelect" class="form-select">
+                            <option value="">Choose file...</option>
+                            {% for file in files %}
+                            <option value="{{ file.id }}" {% if file.id|stringformat:"s" == selected_file_id %}selected{% endif %}>
+                                {{ file.name }}
+                                {% if file.uploaded_by %}
+                                    <small>(by {{ file.uploaded_by.username }})</small>
+                                {% endif %}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <!-- Sheet Selection -->
+                    <div class="mb-3">
+                        <label class="form-label">Select Sheet</label>
+                        <select id="sheetSelect" class="form-select" disabled>
+                            <option value="">Choose sheet...</option>
+                        </select>
+                    </div>
+                    
+                    <!-- X-Axis Selection -->
+                    <div class="mb-3">
+                        <label class="form-label">X-Axis Parameter</label>
+                        <select id="xAxisSelect" class="form-select" disabled>
+                            <option value="">Select X-axis column...</option>
+                        </select>
+                        <small class="text-muted">Select from first column subcolumns</small>
+                    </div>
+                    
+                    <!-- Y-Axis Selection -->
+                    <div class="mb-3">
+                        <label class="form-label">Y-Axis Parameters</label>
+                        <div id="yAxisContainer" class="checkbox-container">
+                            <p class="text-muted small">Select sheet first</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Graph Type -->
+                    <div class="mb-3">
+                        <label class="form-label">Graph Type</label>
+                        <select id="graphType" class="form-select">
+                            <option value="line">Line Chart</option>
+                            <option value="bar">Bar Chart</option>
+                            <option value="scatter">Scatter Plot</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Action Buttons -->
+                    <div class="d-grid gap-2">
+                        <button type="button" id="plotBtn" class="btn btn-success" disabled>
+                            <i class="fas fa-chart-line"></i> Plot Graph
+                        </button>
+                        <button type="button" id="addToComparisonBtn" class="btn btn-warning" disabled>
+                            <i class="fas fa-plus-circle"></i> Add to Comparison
+                        </button>
+                        <button type="button" id="compareBtn" class="btn btn-info" disabled>
+                            <i class="fas fa-layer-group"></i> Compare Graphs
+                            <span id="comparisonCount" class="badge bg-light text-dark ms-1">0</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Export Options -->
+        <div class="card shadow-sm mt-3" id="exportCard" style="display: none;">
+            <div class="card-header bg-secondary text-white">
+                <h6 class="mb-0"><i class="fas fa-download"></i> Export Options</h6>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <button id="exportPDF" class="btn btn-outline-danger btn-sm">
+                        <i class="fas fa-file-pdf"></i> Export as PDF
+                    </button>
+                    <button id="exportJPG" class="btn btn-outline-primary btn-sm">
+                        <i class="fas fa-file-image"></i> Export as JPG
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Graph Display -->
+    <div class="col-md-9">
+        <div class="card shadow-sm">
+            <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fas fa-chart-area"></i> Data Visualization</h5>
+                <button id="clearComparisonBtn" class="btn btn-sm btn-light" style="display: none;">
+                    <i class="fas fa-times"></i> Clear Comparison
+                </button>
+            </div>
+            <div class="card-body">
+                <div id="graphContainer" style="height: 600px;">
+                    <div class="text-center text-muted py-5">
+                        <i class="fas fa-chart-bar fa-5x mb-3"></i>
+                        <p>Select data parameters to generate graph</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Comparison List -->
+        <div class="card shadow-sm mt-3" id="comparisonListCard" style="display: none;">
+            <div class="card-header bg-info text-white">
+                <h6 class="mb-0"><i class="fas fa-list"></i> Graphs in Comparison</h6>
+            </div>
+            <div class="card-body">
+                <div id="comparisonList"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // Pass authentication status to JavaScript
+    window.isAuthenticated = "{{ user.is_authenticated }}" === "True";
+</script>
+{% endblock %}
