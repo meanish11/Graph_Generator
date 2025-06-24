@@ -1,7 +1,12 @@
 # excel_visualizer/settings.py
 import os
 from pathlib import Path
+# from dotenv import load_dotenv
 
+# load_dotenv()
+
+# SECRET_KEY = os.getenv('SECRET_KEY', 'unsafe-secret-key-change-in-production')
+# DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
