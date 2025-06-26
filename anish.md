@@ -1,784 +1,279 @@
-// main.js - Excel Data Visualizer
-
-// Global variables
-let uploadedFiles = [];
-let currentGraphs = [];
-let plotlyGraphs = {};
-
-// Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
-    initializeEventListeners();
-    loadUserFiles();
-    setupGraphTypeOptions();
-});
+    // Elements
+    const el = id => document.getElementById(id);
 
-// Initialize all event listeners
-function initializeEventListeners() {
-    // File upload
-    const fileInput = document.getElementById('file-input');
-    const uploadBtn = document.getElementById('upload-btn');
-    
-    if (uploadBtn) {
-        uploadBtn.addEventListener('click', () => fileInput.click());
-    }
-    
-    if (fileInput) {
-        fileInput.addEventListener('change', handleFileUpload);
-    }
-    
-    // Graph controls
-    const plotBtn = document.getElementById('plot-btn');
-    if (plotBtn) {
-        plotBtn.addEventListener('click', plotGraph);
-    }
-    
-    // Export buttons
-    const exportPdfBtn = document.getElementById('export-pdf');
-    const exportJpgBtn = document.getElementById('export-jpg');
-    
-    if (exportPdfBtn) {
-        exportPdfBtn.addEventListener('click', () => exportGraph('pdf'));
-    }
-    
-    if (exportJpgBtn) {
-        exportJpgBtn.addEventListener('click', () => exportGraph('jpg'));
-    }
-    
-    // Compare graphs button
-    const compareBtn = document.getElementById('compare-btn');
-    if (compareBtn) {
-        compareBtn.addEventListener('click', compareGraphs);
-    }
-    
-    // File selection change
-    const fileSelect = document.getElementById('file-select');
-    if (fileSelect) {
-        fileSelect.addEventListener('change', handleFileSelection);
-    }
-    
-    // Graph type change
-    const graphType = document.getElementById('graph-type');
-    if (graphType) {
-        graphType.addEventListener('change', updateGraphOptions);
-    }
-}
+    const fileSelect = el('fileSelect');
+    const sheetSelect = el('sheetSelect');
+    const xAxisSelect = el('xAxisSelect');
+    const yAxisContainer = el('yAxisContainer');
+    const graphType = el('graphType');
+    const plotBtn = el('plotBtn');
+    const addToComparisonBtn = el('addToComparisonBtn');
+    const compareBtn = el('compareBtn');
+    const clearComparisonBtn = el('clearComparisonBtn');
+    const comparisonCount = el('comparisonCount');
+    const comparisonListCard = el('comparisonListCard');
+    const comparisonList = el('comparisonList');
+    const exportCard = el('exportCard');
+    const exportPDF = el('exportPDF');
+    const exportJPG = el('exportJPG');
+    const graphContainer = el('graphContainer');
 
-// Handle file upload
-async function handleFileUpload(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-    
-    // Validate file type
-    const validTypes = ['.xlsx', '.xls', '.csv'];
-    const fileExtension = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
-    
-    if (!validTypes.includes(fileExtension)) {
-        showNotification('Please upload a valid Excel or CSV file', 'error');
-        return;
+    let currentFigure = null, currentGraphData = null, comparisonGraphs = [];
+
+    // Helper: fetch & JSON
+    async function fetchJSON(url, options) {
+        const res = await fetch(url, options);
+        if (!res.ok) throw new Error(await res.text());
+        return await res.json();
     }
-    
-    // Show loading
-    showLoading(true);
-    
-    try {
-        const formData = new FormData();
-        formData.append('file', file);
-        
-        const response = await fetch('/upload/', {
-            method: 'POST',
-            headers: {
-                'X-CSRFToken': getCookie('csrftoken')
-            },
-            body: formData
+
+    // Helper: create element
+    function create(tag, props = {}, ...children) {
+        const elem = document.createElement(tag);
+        Object.entries(props).forEach(([k, v]) => {
+            if (k === "class") elem.className = v;
+            else if (k.startsWith("on")) elem.addEventListener(k.slice(2).toLowerCase(), v);
+            else elem[k] = v;
         });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            showNotification('File uploaded successfully!', 'success');
-            uploadedFiles.push(data.file);
-            updateFileList();
-            populateFileSelect();
-            
-            // Auto-select the newly uploaded file
-            document.getElementById('file-select').value = data.file.id;
-            handleFileSelection();
-        } else {
-            showNotification(data.error || 'Upload failed', 'error');
+        children.forEach(child => elem.append(child));
+        return elem;
+    }
+
+    // UI: show alert
+    function showAlert(message, type) {
+        document.querySelectorAll('.alert').forEach(a => a.remove());
+        const icon = type === 'success' ? 'check-circle' : type === 'warning' ? 'exclamation-triangle' : 'times-circle';
+        const alertDiv = create('div', { class: `alert alert-${type} alert-dismissible fade show`, style: 'animation: fadeIn 0.5s' },
+            create('i', { class: `fas fa-${icon}` }), ' ', message,
+            create('button', { type: 'button', class: 'btn-close', 'data-bs-dismiss': 'alert' })
+        );
+        document.querySelector('main').prepend(alertDiv);
+        setTimeout(() => alertDiv.remove(), 5000);
+    }
+
+    // UI: reset form
+    function resetForm() {
+        sheetSelect.innerHTML = '<option value="">Choose sheet...</option>';
+        sheetSelect.disabled = true;
+        xAxisSelect.innerHTML = '<option value="">Select X-axis parameter...</option>';
+        xAxisSelect.disabled = true;
+        yAxisContainer.innerHTML = '<p class="text-muted small">Select sheet first</p>';
+        plotBtn.disabled = true;
+        addToComparisonBtn.disabled = true;
+        exportCard.style.display = 'none';
+        graphContainer.innerHTML = `
+            <div class="text-center text-muted py-5">
+                <i class="fas fa-chart-bar fa-5x mb-3"></i>
+                <p>Select data parameters to generate graph</p>
+            </div>`;
+    }
+
+    // UI: check form validity
+    function checkFormValidity() {
+        const xSelected = xAxisSelect.value;
+        const ySelected = yAxisContainer.querySelectorAll('input:checked').length > 0;
+        plotBtn.disabled = addToComparisonBtn.disabled = !(xSelected && ySelected);
+    }
+
+    // UI: update comparison list
+    function updateComparisonUI() {
+        comparisonCount.textContent = comparisonGraphs.length;
+        compareBtn.disabled = comparisonGraphs.length < 2;
+        comparisonListCard.style.display = comparisonGraphs.length ? 'block' : 'none';
+        clearComparisonBtn.style.display = comparisonGraphs.length ? 'inline-block' : 'none';
+        comparisonList.innerHTML = '';
+        comparisonGraphs.forEach((g, i) => {
+            comparisonList.append(
+                create('div', { class: 'd-flex justify-content-between align-items-center mb-2 p-2 border rounded' },
+                    create('div', {},
+                        create('strong', {}, `${i + 1}. `), `${g.file_name} - ${g.sheet_name}`,
+                        create('br'), create('small', { class: 'text-muted' }, `X: ${g.x_column}, Y: ${g.y_columns.join(', ')}`)
+                    ),
+                    create('button', {
+                        class: 'btn btn-sm btn-danger',
+                        'data-id': g.id,
+                        onclick: () => {
+                            comparisonGraphs = comparisonGraphs.filter(x => x.id !== g.id);
+                            updateComparisonUI();
+                            showAlert('Graph removed from comparison', 'info');
+                        }
+                    }, create('i', { class: 'fas fa-times' }))
+                )
+            );
+        });
+    }
+
+    // Populate sheet and column selectors
+    fileSelect.addEventListener('change', async function() {
+        const fileId = this.value;
+        if (!fileId) return resetForm();
+        sheetSelect.innerHTML = '<option>Loading sheets...</option>';
+        sheetSelect.disabled = false;
+        xAxisSelect.innerHTML = '<option>Select sheet first</option>';
+        xAxisSelect.disabled = true;
+        yAxisContainer.innerHTML = '<p class="text-muted small">Select sheet first</p>';
+        plotBtn.disabled = addToComparisonBtn.disabled = true;
+        exportCard.style.display = 'none';
+        try {
+            const data = await fetchJSON(`/api/sheets/?file_id=${fileId}`);
+            sheetSelect.innerHTML = '<option value="">Choose sheet...</option>' +
+                data.sheets.map(s => `<option value="${s}">${s}</option>`).join('');
+        } catch (err) {
+            showAlert('Error loading sheets', 'danger');
         }
-    } catch (error) {
-        console.error('Upload error:', error);
-        showNotification('Upload failed. Please try again.', 'error');
-    } finally {
-        showLoading(false);
-    }
-}
+    });
 
-// Handle file selection
-async function handleFileSelection() {
-    const fileSelect = document.getElementById('file-select');
-    const selectedFileId = fileSelect.value;
-    
-    if (!selectedFileId) {
-        clearSheetAndColumnSelects();
-        return;
-    }
-    
-    showLoading(true);
-    
-    try {
-        const response = await fetch(`/get_file_data/${selectedFileId}/`, {
-            headers: {
-                'X-CSRFToken': getCookie('csrftoken')
+    sheetSelect.addEventListener('change', async function() {
+        const fileId = fileSelect.value, sheetName = this.value;
+        if (!(fileId && sheetName)) return;
+        try {
+            const data = await fetchJSON(`/api/columns/?file_id=${fileId}&sheet_name=${sheetName}`);
+            xAxisSelect.disabled = false;
+            xAxisSelect.innerHTML = '<option value="">Select X-axis parameter...</option>' +
+                (data.x_columns || []).map(c => `<option value="${c}">${c}</option>`).join('');
+            yAxisContainer.innerHTML = '';
+            if (data.y_columns && data.y_columns.length) {
+                yAxisContainer.append(create('p', { class: 'text-muted small mb-2' }, 'Select Y-axis parameters:'));
+                data.y_columns.forEach(col => {
+                    yAxisContainer.append(
+                        create('div', { class: 'form-check' },
+                            create('input', {
+                                class: 'form-check-input',
+                                type: 'checkbox',
+                                value: col,
+                                id: `y_${col}`,
+                                onchange: checkFormValidity
+                            }),
+                            create('label', { class: 'form-check-label', htmlFor: `y_${col}` }, col)
+                        )
+                    );
+                });
+            } else {
+                yAxisContainer.innerHTML = '<p class="text-muted small">No Y-axis columns available</p>';
             }
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            populateSheetSelect(data.sheets);
-            if (data.sheets.length > 0) {
-                document.getElementById('sheet-select').value = data.sheets[0];
-                await loadSheetColumns();
-            }
-        } else {
-            showNotification('Failed to load file data', 'error');
+            plotBtn.disabled = addToComparisonBtn.disabled = true;
+        } catch (err) {
+            showAlert('Error loading columns', 'danger');
         }
-    } catch (error) {
-        console.error('Error loading file data:', error);
-        showNotification('Error loading file data', 'error');
-    } finally {
-        showLoading(false);
-    }
-}
+    });
 
-// Load sheet columns
-async function loadSheetColumns() {
-    const fileId = document.getElementById('file-select').value;
-    const sheetName = document.getElementById('sheet-select').value;
-    
-    if (!fileId || !sheetName) return;
-    
-    showLoading(true);
-    
-    try {
-        const response = await fetch(`/get_columns/${fileId}/${encodeURIComponent(sheetName)}/`, {
-            headers: {
-                'X-CSRFToken': getCookie('csrftoken')
+    xAxisSelect.addEventListener('change', checkFormValidity);
+
+    // Plot & compare logic
+    async function plotGraph(addToComparison = false) {
+        const fileId = fileSelect.value,
+            fileName = fileSelect.options[fileSelect.selectedIndex].text,
+            sheetName = sheetSelect.value,
+            xColumn = xAxisSelect.value,
+            yColumns = Array.from(yAxisContainer.querySelectorAll('input:checked')).map(i => i.value),
+            plotType = graphType.value;
+
+        currentGraphData = { file_id: fileId, file_name: fileName, sheet_name: sheetName, x_column: xColumn, y_columns: yColumns, plot_type: plotType };
+
+        graphContainer.innerHTML = `<div class="text-center py-5"><div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div><p class="mt-3">Generating graph...</p></div>`;
+        try {
+            const data = await fetchJSON('/api/plot/', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(currentGraphData) });
+            if (data.figure) {
+                currentFigure = data.figure;
+                const fig = JSON.parse(data.figure);
+                Plotly.newPlot('graphContainer', fig.data, fig.layout, {
+                    responsive: true, displayModeBar: true, displaylogo: false,
+                    modeBarButtonsToRemove: ['pan2d', 'lasso2d', 'select2d']
+                });
+                exportCard.style.display = 'block';
+                if (addToComparison) {
+                    comparisonGraphs.push({ id: Date.now(), ...currentGraphData, figure: data.figure });
+                    updateComparisonUI();
+                    showAlert('Graph added to comparison!', 'success');
+                } else {
+                    showAlert('Graph generated successfully!', 'success');
+                }
             }
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            populateColumnSelects(data.columns);
-        } else {
-            showNotification('Failed to load columns', 'error');
+        } catch (err) {
+            showAlert('Error generating graph', 'danger');
+            graphContainer.innerHTML = `<div class="text-center text-muted py-5"><i class="fas fa-exclamation-triangle fa-5x mb-3"></i><p>Error generating graph. Please try again.</p></div>`;
         }
-    } catch (error) {
-        console.error('Error loading columns:', error);
-        showNotification('Error loading columns', 'error');
-    } finally {
-        showLoading(false);
     }
-}
 
-// Plot graph
-async function plotGraph() {
-    const fileId = document.getElementById('file-select').value;
-    const sheetName = document.getElementById('sheet-select').value;
-    const graphType = document.getElementById('graph-type').value;
-    const xColumn = document.getElementById('x-column').value;
-    const yColumns = Array.from(document.getElementById('y-columns').selectedOptions)
-                          .map(option => option.value);
-    
-    // Validation
-    if (!fileId || !sheetName || !graphType || !xColumn || yColumns.length === 0) {
-        showNotification('Please fill all required fields', 'error');
-        return;
-    }
-    
-    showLoading(true);
-    
-    try {
-        const response = await fetch('/plot_graph/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCookie('csrftoken')
-            },
-            body: JSON.stringify({
-                file_id: fileId,
-                sheet_name: sheetName,
-                graph_type: graphType,
-                x_column: xColumn,
-                y_columns: yColumns
-            })
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            renderGraph(data.graph_data, data.graph_id);
-            currentGraphs.push({
-                id: data.graph_id,
-                type: graphType,
-                data: data.graph_data
+    plotBtn.addEventListener('click', () => plotGraph(false));
+    addToComparisonBtn.addEventListener('click', () => plotGraph(true));
+
+    // Comparison graph
+    compareBtn.addEventListener('click', function() {
+        if (comparisonGraphs.length < 2) return showAlert('Please add at least 2 graphs to compare', 'warning');
+        graphContainer.innerHTML = `<div class="text-center py-5"><div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div><p class="mt-3">Generating comparison graph...</p></div>`;
+        try {
+            const traces = [];
+            const colorPalettes = [
+                ['#FF6B35', '#FF8C61', '#FFAD8D'], ['#00A9E0', '#33BAE8', '#66CBF0'], ['#84BD00', '#A3CC33', '#C2DB66'],
+                ['#FFD100', '#FFDB33', '#FFE566'], ['#7C878E', '#969FA5', '#B0B8BC']
+            ];
+            comparisonGraphs.forEach((graph, gi) => {
+                const fig = JSON.parse(graph.figure), colors = colorPalettes[gi % colorPalettes.length];
+                fig.data.forEach((trace, ti) => {
+                    trace.name = `${graph.file_name} (${graph.sheet_name}) - ${trace.name || graph.y_columns[ti]}`;
+                    const color = colors[ti % colors.length];
+                    if (trace.line) Object.assign(trace.line, { color, width: 2 });
+                    if (trace.marker) Object.assign(trace.marker, { color, opacity: 0.8 });
+                    traces.push(trace);
+                });
             });
-            updateGraphList();
-            showNotification('Graph plotted successfully!', 'success');
-        } else {
-            showNotification(data.error || 'Failed to plot graph', 'error');
-        }
-    } catch (error) {
-        console.error('Error plotting graph:', error);
-        showNotification('Error plotting graph', 'error');
-    } finally {
-        showLoading(false);
-    }
-}
-
-// Render graph using Plotly
-function renderGraph(graphData, graphId, containerId = 'graph-container') {
-    const container = document.getElementById(containerId);
-    
-    // Clear previous graph
-    container.innerHTML = '';
-    
-    // Create graph div
-    const graphDiv = document.createElement('div');
-    graphDiv.id = `graph-${graphId}`;
-    graphDiv.className = 'plotly-graph';
-    container.appendChild(graphDiv);
-    
-    // Parse graph data if it's a string
-    const plotData = typeof graphData === 'string' ? JSON.parse(graphData) : graphData;
-    
-    // Configure layout
-    const layout = {
-        ...plotData.layout,
-        autosize: true,
-        margin: { t: 50, r: 50, b: 50, l: 50 },
-        hovermode: 'closest',
-        showlegend: true,
-        legend: {
-            x: 1,
-            xanchor: 'right',
-            y: 1
-        }
-    };
-    
-    // Configure options
-    const config = {
-        responsive: true,
-        displayModeBar: true,
-        displaylogo: false,
-        modeBarButtonsToAdd: ['drawline', 'drawopenpath', 'eraseshape'],
-        toImageButtonOptions: {
-            format: 'png',
-            filename: 'graph_export',
-            height: 600,
-            width: 800,
-            scale: 1
-        }
-    };
-    
-    // Plot the graph
-    Plotly.newPlot(graphDiv.id, plotData.data, layout, config);
-    
-    // Store reference
-    plotlyGraphs[graphId] = {
-        div: graphDiv.id,
-        data: plotData.data,
-        layout: layout
-    };
-}
-
-// Compare multiple graphs
-function compareGraphs() {
-    const selectedGraphs = Array.from(document.querySelectorAll('.graph-checkbox:checked'))
-                               .map(cb => cb.value);
-    
-    if (selectedGraphs.length < 2) {
-        showNotification('Please select at least 2 graphs to compare', 'warning');
-        return;
-    }
-    
-    // Create comparison modal
-    const modal = createComparisonModal();
-    document.body.appendChild(modal);
-    
-    // Render selected graphs in grid
-    const gridContainer = modal.querySelector('.comparison-grid');
-    selectedGraphs.forEach((graphId, index) => {
-        const graph = currentGraphs.find(g => g.id === graphId);
-        if (graph) {
-            const gridItem = document.createElement('div');
-            gridItem.className = 'comparison-grid-item';
-            gridItem.id = `compare-graph-${index}`;
-            gridContainer.appendChild(gridItem);
-            
-            // Render graph in comparison view
-            renderGraph(graph.data, `compare-${graphId}`, gridItem.id);
+            const layout = {
+                title: `Comparison of ${comparisonGraphs.length} Graphs`,
+                xaxis: { title: 'X-Axis', showgrid: true, gridcolor: '#E0E0E0' },
+                yaxis: { title: 'Values', showgrid: true, gridcolor: '#E0E0E0' },
+                hovermode: 'x unified', template: 'plotly_white', showlegend: true,
+                legend: { orientation: 'v', yanchor: 'top', y: 0.99, xanchor: 'left', x: 1.01, bgcolor: 'rgba(255,255,255,0.8)', bordercolor: '#E0E0E0', borderwidth: 1, font: { size: 10 } },
+                margin: { l: 80, r: 250, t: 80, b: 80 }
+            };
+            Plotly.newPlot('graphContainer', traces, layout, { responsive: true, displayModeBar: true, displaylogo: false, modeBarButtonsToRemove: ['pan2d', 'lasso2d', 'select2d'] });
+            currentFigure = JSON.stringify({ data: traces, layout });
+            exportCard.style.display = 'block';
+            showAlert(`Comparison graph with ${comparisonGraphs.length} datasets generated successfully!`, 'success');
+        } catch (err) {
+            showAlert('Error generating comparison graph', 'danger');
+            graphContainer.innerHTML = `<div class="text-center text-muted py-5"><i class="fas fa-exclamation-triangle fa-5x mb-3"></i><p>Error generating comparison. Please try again.</p></div>`;
         }
     });
-    
-    // Show modal
-    modal.style.display = 'block';
-}
 
-// Export graph
-async function exportGraph(format) {
-    const activeGraphId = getActiveGraphId();
-    if (!activeGraphId) {
-        showNotification('No graph to export', 'warning');
-        return;
-    }
-    
-    showLoading(true);
-    
-    try {
-        const graphDiv = plotlyGraphs[activeGraphId].div;
-        
-        if (format === 'pdf') {
-            // Export as PDF using Plotly and jsPDF
-            Plotly.toImage(graphDiv, { format: 'png', width: 800, height: 600 })
-                .then(function(dataUrl) {
-                    const pdf = new jsPDF('l', 'mm', 'a4');
-                    pdf.addImage(dataUrl, 'PNG', 10, 10, 280, 180);
-                    pdf.save('graph_export.pdf');
-                    showNotification('Graph exported as PDF', 'success');
-                });
-        } else if (format === 'jpg') {
-            // Export as JPG
-            Plotly.toImage(graphDiv, { format: 'jpeg', width: 800, height: 600 })
-                .then(function(dataUrl) {
-                    const link = document.createElement('a');
-                    link.download = 'graph_export.jpg';
-                    link.href = dataUrl;
-                    link.click();
-                    showNotification('Graph exported as JPG', 'success');
-                });
-        }
-    } catch (error) {
-        console.error('Export error:', error);
-        showNotification('Export failed', 'error');
-    } finally {
-        showLoading(false);
-    }
-}
-
-// Helper Functions
-
-// Get CSRF token
-function getCookie(name) {
-    let cookieValue = null;
-    if (document.cookie && document.cookie !== '') {
-        const cookies = document.cookie.split(';');
-        for (let i = 0; i < cookies.length; i++) {
-            const cookie = cookies[i].trim();
-            if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                break;
-            }
-        }
-    }
-    return cookieValue;
-}
-
-// Show loading indicator
-function showLoading(show) {
-    const loader = document.getElementById('loading-indicator');
-    if (loader) {
-        loader.style.display = show ? 'block' : 'none';
-    }
-}
-
-// Show notification
-function showNotification(message, type = 'info') {
-    const notification = document.createElement('div');
-    notification.className = `notification ${type}`;
-    notification.textContent = message;
-    
-    document.body.appendChild(notification);
-    
-    // Animate in
-    setTimeout(() => notification.classList.add('show'), 10);
-    
-    // Remove after 3 seconds
-    setTimeout(() => {
-        notification.classList.remove('show');
-        setTimeout(() => notification.remove(), 300);
-    }, 3000);
-}
-
-// Update file list display
-function updateFileList() {
-    const fileList = document.getElementById('file-list');
-    if (!fileList) return;
-    
-    fileList.innerHTML = uploadedFiles.map(file => `
-        <div class="file-item">
-            <span class="file-name">${file.name}</span>
-            <span class="file-date">${new Date(file.uploaded_at).toLocaleDateString()}</span>
-            <button class="delete-btn" onclick="deleteFile(${file.id})">Delete</button>
-        </div>
-    `).join('');
-}
-
-// Populate dropdowns
-function populateFileSelect() {
-    const select = document.getElementById('file-select');
-    select.innerHTML = '<option value="">Select a file</option>' +
-        uploadedFiles.map(file => `<option value="${file.id}">${file.name}</option>`).join('');
-}
-
-function populateSheetSelect(sheets) {
-    const select = document.getElementById('sheet-select');
-    select.innerHTML = '<option value="">Select a sheet</option>' +
-        sheets.map(sheet => `<option value="${sheet}">${sheet}</option>`).join('');
-}
-
-function populateColumnSelects(columns) {
-    const xSelect = document.getElementById('x-column');
-    const ySelect = document.getElementById('y-columns');
-    
-    const options = columns.map(col => `<option value="${col}">${col}</option>`).join('');
-    
-    xSelect.innerHTML = '<option value="">Select X axis</option>' + options;
-    ySelect.innerHTML = options;
-}
-
-// Clear selections
-function clearSheetAndColumnSelects() {
-    document.getElementById('sheet-select').innerHTML = '<option value="">Select a sheet</option>';
-    document.getElementById('x-column').innerHTML = '<option value="">Select X axis</option>';
-    document.getElementById('y-columns').innerHTML = '';
-}
-
-// Get active graph ID
-function getActiveGraphId() {
-    return currentGraphs.length > 0 ? currentGraphs[currentGraphs.length - 1].id : null;
-}
-
-// Create comparison modal
-function createComparisonModal() {
-    const modal = document.createElement('div');
-    modal.className = 'comparison-modal';
-    modal.innerHTML = `
-        <div class="modal-content">
-            <span class="close-modal" onclick="this.parentElement.parentElement.remove()">&times;</span>
-            <h2>Graph Comparison</h2>
-            <div class="comparison-grid"></div>
-        </div>
-    `;
-    return modal;
-}
-
-// Update graph options based on type
-function updateGraphOptions() {
-    const graphType = document.getElementById('graph-type').value;
-    const yColumnsSelect = document.getElementById('y-columns');
-    
-    // Enable/disable multiple selection based on graph type
-    if (graphType === 'pie' || graphType === 'histogram') {
-        yColumnsSelect.multiple
-
-// Update graph options based on type (continued)
-function updateGraphOptions() {
-    const graphType = document.getElementById('graph-type').value;
-    const yColumnsSelect = document.getElementById('y-columns');
-    
-    // Enable/disable multiple selection based on graph type
-    if (graphType === 'pie' || graphType === 'histogram') {
-        yColumnsSelect.multiple = false;
-        // Clear all but first selection for single-select graph types
-        if (yColumnsSelect.selectedOptions.length > 1) {
-            const firstSelected = yColumnsSelect.selectedOptions[0].value;
-            yColumnsSelect.value = firstSelected;
-        }
-    } else {
-        yColumnsSelect.multiple = true;
-    }
-    
-    // Update UI hints
-    updateGraphTypeHints(graphType);
-}
-
-// Update UI hints based on graph type
-function updateGraphTypeHints(graphType) {
-    const hints = {
-        'line': 'Select X axis for time/sequence data and Y columns for values to plot',
-        'bar': 'Select categories for X axis and values for Y axis',
-        'scatter': 'Select X and Y columns for point data visualization',
-        'pie': 'Select a category column for X and a single value column for Y',
-        'histogram': 'Select a single column for distribution analysis',
-        'box': 'Select categories for X and value columns for Y to show distributions',
-        'heatmap': 'Select columns for X and Y axes to create a heat map',
-        'area': 'Similar to line chart but with filled areas'
-    };
-    
-    const hintElement = document.getElementById('graph-type-hint');
-    if (hintElement) {
-        hintElement.textContent = hints[graphType] || '';
-    }
-}
-
-// Setup graph type options
-function setupGraphTypeOptions() {
-    const graphTypes = [
-        { value: 'line', text: 'Line Chart', icon: '📈' },
-        { value: 'bar', text: 'Bar Chart', icon: '📊' },
-        { value: 'scatter', text: 'Scatter Plot', icon: '⚫' },
-        { value: 'pie', text: 'Pie Chart', icon: '🥧' },
-        { value: 'histogram', text: 'Histogram', icon: '📊' },
-        { value: 'box', text: 'Box Plot', icon: '📦' },
-        { value: 'heatmap', text: 'Heatmap', icon: '🔥' },
-        { value: 'area', text: 'Area Chart', icon: '📈' }
-    ];
-    
-    const select = document.getElementById('graph-type');
-    if (select && select.options.length === 0) {
-        select.innerHTML = '<option value="">Select graph type</option>' +
-            graphTypes.map(type => 
-                `<option value="${type.value}">${type.icon} ${type.text}</option>`
-            ).join('');
-    }
-}
-
-// Load user files on page load
-async function loadUserFiles() {
-    try {
-        const response = await fetch('/get_user_files/', {
-            headers: {
-                'X-CSRFToken': getCookie('csrftoken')
-            }
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            uploadedFiles = data.files;
-            updateFileList();
-            populateFileSelect();
-        }
-    } catch (error) {
-        console.error('Error loading user files:', error);
-    }
-}
-
-// Delete file
-async function deleteFile(fileId) {
-    if (!confirm('Are you sure you want to delete this file?')) {
-        return;
-    }
-    
-    showLoading(true);
-    
-    try {
-        const response = await fetch(`/delete_file/${fileId}/`, {
-            method: 'DELETE',
-            headers: {
-                'X-CSRFToken': getCookie('csrftoken')
-            }
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            uploadedFiles = uploadedFiles.filter(file => file.id !== fileId);
-            updateFileList();
-            populateFileSelect();
-            showNotification('File deleted successfully', 'success');
-        } else {
-            showNotification('Failed to delete file', 'error');
-        }
-    } catch (error) {
-        console.error('Error deleting file:', error);
-        showNotification('Error deleting file', 'error');
-    } finally {
-        showLoading(false);
-    }
-}
-
-// Update graph list for comparison
-function updateGraphList() {
-    const graphList = document.getElementById('graph-list');
-    if (!graphList) return;
-    
-    graphList.innerHTML = currentGraphs.map((graph, index) => `
-        <div class="graph-list-item">
-            <input type="checkbox" class="graph-checkbox" value="${graph.id}" id="graph-check-${graph.id}">
-            <label for="graph-check-${graph.id}">
-                Graph ${index + 1} - ${graph.type}
-            </label>
-        </div>
-    `).join('');
-}
-
-// Advanced graph customization
-function openGraphCustomization() {
-    const modal = document.createElement('div');
-    modal.className = 'customization-modal';
-    modal.innerHTML = `
-        <div class="modal-content">
-            <span class="close-modal" onclick="this.parentElement.parentElement.remove()">&times;</span>
-            <h2>Customize Graph</h2>
-            <div class="customization-options">
-                <div class="option-group">
-                    <label>Title:</label>
-                    <input type="text" id="custom-title" placeholder="Enter graph title">
-                </div>
-                <div class="option-group">
-                    <label>X-Axis Label:</label>
-                    <input type="text" id="custom-x-label" placeholder="X-axis label">
-                </div>
-                <div class="option-group">
-                    <label>Y-Axis Label:</label>
-                    <input type="text" id="custom-y-label" placeholder="Y-axis label">
-                </div>
-                <div class="option-group">
-                    <label>Color Scheme:</label>
-                    <select id="custom-color-scheme">
-                        <option value="default">Default</option>
-                        <option value="viridis">Viridis</option>
-                        <option value="plasma">Plasma</option>
-                        <option value="rainbow">Rainbow</option>
-                    </select>
-                </div>
-                <button onclick="applyCustomization()" class="apply-btn">Apply Changes</button>
-            </div>
-        </div>
-    `;
-    document.body.appendChild(modal);
-    modal.style.display = 'block';
-}
-
-// Apply graph customization
-function applyCustomization() {
-    const activeGraphId = getActiveGraphId();
-    if (!activeGraphId || !plotlyGraphs[activeGraphId]) return;
-    
-    const title = document.getElementById('custom-title').value;
-    const xLabel = document.getElementById('custom-x-label').value;
-    const yLabel = document.getElementById('custom-y-label').value;
-    const colorScheme = document.getElementById('custom-color-scheme').value;
-    
-    const update = {
-        title: title || plotlyGraphs[activeGraphId].layout.title,
-        xaxis: { title: xLabel || plotlyGraphs[activeGraphId].layout.xaxis.title },
-        yaxis: { title: yLabel || plotlyGraphs[activeGraphId].layout.yaxis.title }
-    };
-    
-    // Apply color scheme
-    if (colorScheme !== 'default') {
-        const colors = getColorScheme(colorScheme);
-        plotlyGraphs[activeGraphId].data.forEach((trace, index) => {
-            trace.marker = trace.marker || {};
-            trace.marker.color = colors[index % colors.length];
+    // Export (PDF/JPG)
+    function exportGraph(format, btn, icon, filename) {
+        if (!currentFigure) return;
+        btn.disabled = true;
+        btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Exporting...`;
+        fetch('/api/export/', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ figure: currentFigure, format })
+        })
+        .then(res => {
+            if (!res.ok) throw new Error('Export failed');
+            return res.blob();
+        })
+        .then(blob => {
+            const url = window.URL.createObjectURL(blob), a = document.createElement('a');
+            a.href = url; a.download = filename;
+            a.click(); window.URL.revokeObjectURL(url);
+            showAlert(`${format.toUpperCase()} exported successfully!`, 'success');
+        })
+        .catch(() => showAlert(`Error exporting ${format.toUpperCase()}`, 'danger'))
+        .finally(() => {
+            btn.disabled = false;
+            btn.innerHTML = `<i class="fas fa-file-${icon}"></i> Export as ${format.toUpperCase()}`;
         });
     }
-    
-    Plotly.relayout(plotlyGraphs[activeGraphId].div, update);
-    
-    // Close modal
-    document.querySelector('.customization-modal').remove();
-    showNotification('Graph customization applied', 'success');
-}
+    exportPDF.addEventListener('click', function() { exportGraph('pdf', this, 'pdf', 'graph.pdf'); });
+    exportJPG.addEventListener('click', function() { exportGraph('jpg', this, 'image', 'graph.jpg'); });
 
-// Get color scheme
-function getColorScheme(scheme) {
-    const schemes = {
-        'viridis': ['#440154', '#31688e', '#35b779', '#fde725'],
-        'plasma': ['#0d0887', '#6a00a8', '#b12a90', '#e16462', '#fca636'],
-        'rainbow': ['#ff0000', '#ff7f00', '#ffff00', '#00ff00', '#0000ff', '#4b0082', '#8b00ff']
-    };
-    return schemes[scheme] || schemes['viridis'];
-}
-
-// Keyboard shortcuts
-document.addEventListener('keydown', function(event) {
-    // Ctrl/Cmd + S to save/export
-    if ((event.ctrlKey || event.metaKey) && event.key === 's') {
-        event.preventDefault();
-        exportGraph('pdf');
-    }
-    
-    // Ctrl/Cmd + P to plot
-    if ((event.ctrlKey || event.metaKey) && event.key === 'p') {
-        event.preventDefault();
-        plotGraph();
-    }
-    
-    // ESC to close modals
-    if (event.key === 'Escape') {
-        const modals = document.querySelectorAll('.comparison-modal, .customization-modal');
-        modals.forEach(modal => modal.remove());
-    }
-});
-
-// Auto-save functionality
-let autoSaveInterval;
-function enableAutoSave() {
-    autoSaveInterval = setInterval(() => {
-        if (currentGraphs.length > 0) {
-            saveGraphsToLocalStorage();
+    clearComparisonBtn.addEventListener('click', function() {
+        if (confirm('Clear all graphs from comparison?')) {
+            comparisonGraphs = [];
+            updateComparisonUI();
+            showAlert('Comparison cleared', 'info');
         }
-    }, 30000); // Save every 30 seconds
-}
-
-function saveGraphsToLocalStorage() {
-    try {
-        const graphsData = currentGraphs.map(graph => ({
-            id: graph.id,
-            type: graph.type,
-            timestamp: new Date().toISOString()
-        }));
-        localStorage.setItem('excel_visualizer_graphs', JSON.stringify(graphsData));
-    } catch (error) {
-        console.error('Error saving to localStorage:', error);
-    }
-}
-
-// Load saved graphs from localStorage
-function loadSavedGraphs() {
-    try {
-        const saved = localStorage.getItem('excel_visualizer_graphs');
-        if (saved) {
-            const graphsData = JSON.parse(saved);
-            // Restore graphs if needed
-            console.log('Found saved graphs:', graphsData);
-        }
-    } catch (error) {
-        console.error('Error loading saved graphs:', error);
-    }
-}
-
-// Initialize auto-save
-enableAutoSave();
-
-// Responsive handling
-window.addEventListener('resize', function() {
-    // Resize all active Plotly graphs
-    Object.keys(plotlyGraphs).forEach(graphId => {
-        Plotly.Plots.resize(plotlyGraphs[graphId].div);
     });
-});
 
-// Clean up on page unload
-window.addEventListener('beforeunload', function() {
-    if (autoSaveInterval) {
-        clearInterval(autoSaveInterval);
-    }
-    saveGraphsToLocalStorage();
+    // Initialize if file_id is in URL
+    if (fileSelect.value) fileSelect.dispatchEvent(new Event('change'));
+    [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]')).map(el => new bootstrap.Tooltip(el));
 });
-
-// Export functions for testing
-window.ExcelVisualizer = {
-    uploadFile: handleFileUpload,
-    plotGraph: plotGraph,
-    exportGraph: exportGraph,
-    compareGraphs: compareGraphs,
-    deleteFile: deleteFile,
-    customizeGraph: openGraphCustomization
-};
