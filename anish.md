@@ -1,3 +1,12 @@
+Sure! Here's the complete and clean version of both files:
+
+
+---
+
+✅ index.html
+
+Path: data_analyzer/templates/data_analyzer/index.html
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -162,3 +171,59 @@
     </script>
 </body>
 </html>
+
+
+---
+
+🎨 style.css
+
+Path: data_analyzer/static/data_analyzer/style.css
+
+.graph-block {
+    border: 1px solid #dee2e6;
+    padding: 15px;
+    margin-bottom: 15px;
+    border-radius: 10px;
+    background-color: #ffffff;
+    box-shadow: 0 0 5px rgba(0, 0, 0, 0.05);
+}
+
+.form-label {
+    font-weight: 500;
+}
+
+#plot {
+    background-color: #fff;
+    padding: 10px;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.08);
+}
+
+#status {
+    min-height: 20px;
+}
+
+
+---
+
+✅ Summary
+
+index.html gives you the full frontend UI with all interactive buttons and dropdowns.
+
+style.css gives you clean layout, shadows, and styling for each block and the graph area.
+
+All scripts use native JavaScript for AJAX and Plotly for visualization.
+
+
+
+---
+
+Would you like me to help you:
+
+Add X-axis selection like Y-axis?
+
+Bundle this into a ready-to-run GitHub repo?
+
+
+Let me know!
+
